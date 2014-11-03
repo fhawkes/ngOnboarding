@@ -22,12 +22,12 @@ app.provider "ngOnboardingDefaults", ->
     buttonContainerClass: 'onboarding-button-container',
     buttonClass: "onboarding-button",
     showButtons: true,
-    nextButtonText: 'Next &rarr;',
-    previousButtonText: '&larr; Previous',
+    nextButtonText: 'Next',
+    previousButtonText: 'Previous',
     showDoneButton: true,
     doneButtonText: 'Done',
     closeButtonClass: 'onboarding-close-button',
-    closeButtonText: 'X',
+    closeButtonText: '&times;',
     stepClass: 'onboarding-step-info',
     showStepInfo: true
   }
@@ -52,18 +52,25 @@ app.directive 'onboardingPopover', ['ngOnboardingDefaults', '$sce', '$timeout', 
   link: (scope, element, attrs) ->
     # Important Variables
     curStep = null
-    attributesToClear = ['title', 'top', 'right', 'bottom', 'left', 'width', 'height', 'position']
+    prevStep = null
+    attributesToClear = ['title', 'top', 'right', 'bottom', 'left', 'width', 'height', 'position', 'arrowOffset']
     scope.stepCount = scope.steps.length
 
     # Button Actions
-    scope.next = -> scope.index = scope.index + 1
-    scope.previous = -> scope.index = scope.index - 1
+    scope.next = ->
+      prevStep = curStep
+      scope.index = scope.index + 1
+    scope.previous = -> 
+      prevStep = curStep
+      scope.index = scope.index - 1
     scope.close = ->
       scope.enabled = false
       setupOverlay(false)
       if scope.onFinishCallback
         scope.onFinishCallback()
-
+    # Watch for changes in the enabled state to initialize the overlay
+    scope.$watch 'enabled', (newVal, oldVal) ->
+      scope.index = 0 if newVal && !scope.index
     # Watch for changes in the current step index
     scope.$watch 'index', (newVal, oldVal) ->
       if newVal == null
@@ -89,11 +96,14 @@ app.directive 'onboardingPopover', ['ngOnboardingDefaults', '$sce', '$timeout', 
       scope.previousButtonText = $sce.trustAsHtml(scope.previousButtonText)
       scope.doneButtonText = $sce.trustAsHtml(scope.doneButtonText)
       scope.closeButtonText = $sce.trustAsHtml(scope.closeButtonText)
-      setupOverlay()
-      setupPositioning()
+      $timeout( ->
+        setupOverlay()
+        setupPositioning()
+      , 0)
 
     setupOverlay = (showOverlay=true) ->
-      $('.onboarding-focus').removeClass('onboarding-focus')
+      $(prevStep['attachTo']).removeClass('onboarding-focus') if prevStep
+      $(curStep['attachTo']).removeClass('onboarding-focus') if curStep
       if showOverlay
         if curStep['attachTo'] && scope.overlay
           $(curStep['attachTo']).addClass('onboarding-focus')
@@ -105,20 +115,32 @@ app.directive 'onboardingPopover', ['ngOnboardingDefaults', '$sce', '$timeout', 
       yMargin = 15
       if attachTo
         # SET X POSITION
-        unless scope.left || scope.right
+        unless scope.left || scope.right || scope.arrowOffset
           left = null
           right = null
+          newLeft = null
+          arrowOffset = null
           if scope.position == 'right'
             left = $(attachTo).offset().left + $(attachTo).outerWidth() + xMargin
           else if scope.position == 'left'
             right = $(window).width() - $(attachTo).offset().left + xMargin
           else if scope.position == 'top' || scope.position == 'bottom'
             left = $(attachTo).offset().left
+            # Check to see if the popover is outside of the viewport (TODO check left side of window)
+            # If it is adjust the position of the popover and the popovers arrow
+            popoverWidth = parseInt(curStep['width'].replace("px", ""))
+            windowWidth = $(window).width()
+            if left + popoverWidth >= windowWidth
+              targetCenter = $(attachTo).width() / 2
+              newLeft = windowWidth - popoverWidth - xMargin
+              arrowOffset = left + targetCenter - newLeft
+              left = newLeft
           if curStep['xOffset']
             left = left + curStep['xOffset'] if left != null
             right = right - curStep['xOffset'] if right != null
           scope.left = left
           scope.right = right
+          scope.arrowOffset = arrowOffset
 
         # SET Y POSITION
         unless scope.top || scope.bottom
@@ -143,14 +165,11 @@ app.directive 'onboardingPopover', ['ngOnboardingDefaults', '$sce', '$timeout', 
       else
         scope.positionClass = null
 
-    if scope.steps.length && !scope.index
-      scope.index = 0
-
   template: """
               <div class='onboarding-container' ng-show='enabled'>
                 <div class='{{overlayClass}}' ng-style='{opacity: overlayOpacity}', ng-show='overlay'></div>
                 <div class='{{popoverClass}} {{positionClass}}' ng-style="{width: width, height: height, left: left, top: top, right: right, bottom: bottom}">
-                  <div class='{{arrowClass}}'></div>
+                  <div class='{{arrowClass}}' ng-style='{left: arrowOffset}'></div>
                   <h3 class='{{titleClass}}' ng-show='title' ng-bind='title'></h3>
                   <a href='' ng-click='close()' class='{{closeButtonClass}}' ng-bind-html='closeButtonText'></a>
                   <div class='{{contentClass}}'>
