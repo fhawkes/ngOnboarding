@@ -55,6 +55,7 @@ app.directive 'onboardingPopover', ['ngOnboardingDefaults', '$sce', '$timeout', 
     prevStep = null
     attributesToClear = ['title', 'top', 'right', 'bottom', 'left', 'width', 'height', 'position', 'arrowOffset']
     scope.stepCount = scope.steps.length
+    scope.showPopover = false
 
     # Button Actions
     scope.next = ->
@@ -78,6 +79,7 @@ app.directive 'onboardingPopover', ['ngOnboardingDefaults', '$sce', '$timeout', 
         setupOverlay(false)
         return
 
+      scope.showPopover = false
       curStep = scope.steps[scope.index]
       scope.lastStep = (scope.index + 1 == scope.steps.length)
       scope.showNextButton = (scope.index + 1 < scope.steps.length)
@@ -111,6 +113,7 @@ app.directive 'onboardingPopover', ['ngOnboardingDefaults', '$sce', '$timeout', 
     setupPositioning = ->
       attachTo = curStep['attachTo']
       scope.position = curStep['position']
+      scope.showPopover = false
       xMargin = 15
       yMargin = 15
       if attachTo
@@ -165,13 +168,17 @@ app.directive 'onboardingPopover', ['ngOnboardingDefaults', '$sce', '$timeout', 
       else
         scope.positionClass = null
 
+      scope.showPopover = true
+
   template: """
               <div class='onboarding-container' ng-show='enabled'>
                 <div class='{{overlayClass}}' ng-style='{opacity: overlayOpacity}', ng-show='overlay'></div>
-                <div class='{{popoverClass}} {{positionClass}}' ng-style="{width: width, height: height, left: left, top: top, right: right, bottom: bottom}">
+                <div class='{{popoverClass}} {{positionClass}}' ng-style="{width: width, height: height, left: left, top: top, right: right, bottom: bottom}" ng-show='showPopover'>
                   <div class='{{arrowClass}}' ng-style='{left: arrowOffset}'></div>
-                  <h3 class='{{titleClass}}' ng-show='title' ng-bind='title'></h3>
-                  <a href='' ng-click='close()' class='{{closeButtonClass}}' ng-bind-html='closeButtonText'></a>
+                  <div class="onboarding-header">
+                    <h3 class='{{titleClass}}' ng-show='title' ng-bind='title'></h3>
+                    <a href='' ng-click='close()' class='{{closeButtonClass}}' ng-bind-html='closeButtonText'></a>
+                  </div>
                   <div class='{{contentClass}}'>
                     <p ng-bind-html='description'></p>
                   </div>
